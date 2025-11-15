@@ -1,5 +1,3 @@
-CREATE DATABASE IF NOT EXISTS assigner;
-
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'pull_request_status') THEN

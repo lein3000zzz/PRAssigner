@@ -1,6 +1,7 @@
 package pullrequest
 
 import (
+	"assignerPR/internal/metrics"
 	"assignerPR/pkg/user"
 	"errors"
 	"sort"
@@ -32,8 +33,18 @@ func NewPullRequestsRepoPg(logger *zap.SugaredLogger, db *gorm.DB) *PullRequests
 func (repo *PullRequestsRepoPg) CreatePR(prID, prName, authorID string) (*PullRequest, error) {
 	repo.logger.Debugw("CreatePR()", "prID", prID, "authorID", authorID)
 
+	var dbTxErr error
+
+	start := time.Now()
+	defer func() {
+		metrics.ObservePROp("create_pr", start, dbTxErr)
+		if dbTxErr == nil {
+			metrics.AddOpenPR(1)
+		}
+	}()
+
 	var pr *PullRequest
-	err := repo.db.Transaction(func(tx *gorm.DB) error {
+	dbTxErr = repo.db.Transaction(func(tx *gorm.DB) error {
 		var author user.User
 		if err := tx.First(&author, "user_id = ?", authorID).Error; err != nil {
 			// На сложных операциях, (как пример, транзакция), gorm не всегда отлавливает и оборачивает ошибки, возвращая просто ошибку бд
@@ -80,13 +91,13 @@ func (repo *PullRequestsRepoPg) CreatePR(prID, prName, authorID string) (*PullRe
 		}).First(pr, "pull_request_id = ?", prID).Error
 	})
 
-	if err != nil {
+	if dbTxErr != nil {
 		repo.logger.Errorw("Error creating PR", "prID", prID, "authorID", authorID)
-		return nil, err
+		return nil, dbTxErr
 	}
 
 	repo.logger.Debugw("PR created", "prID", prID, "authorID", authorID)
-	return pr, err
+	return pr, nil
 }
 
 func (repo *PullRequestsRepoPg) pickInitialReviewersInTx(tx *gorm.DB, teamName, authorID string) ([]*user.User, error) {
@@ -111,13 +122,25 @@ func (repo *PullRequestsRepoPg) pickInitialReviewersInTx(tx *gorm.DB, teamName, 
 func (repo *PullRequestsRepoPg) Merge(prID string) (*PullRequest, error) {
 	repo.logger.Debugw("Merge()", "prID", prID)
 
+	start := time.Now()
+	var preStatus string
 	var pr PullRequest
-	err := repo.db.Transaction(func(tx *gorm.DB) error {
+	var err error
+
+	defer func() {
+		metrics.ObservePROp("merge_pr", start, err)
+		if err == nil && preStatus != StatusMerged && pr.Status == StatusMerged {
+			metrics.AddOpenPR(-1)
+		}
+	}()
+
+	err = repo.db.Transaction(func(tx *gorm.DB) error {
 		if err := repo.lockAndLoadPR(tx, prID, &pr); err != nil {
 			repo.logger.Errorw("Error loading PR", "prID", prID, "err", err)
 			return err
 		}
 
+		preStatus = pr.Status
 		if pr.Status == StatusMerged {
 			repo.logger.Warnw("PR already merged", "prID", prID)
 			return nil
@@ -151,6 +174,13 @@ func (repo *PullRequestsRepoPg) Merge(prID string) (*PullRequest, error) {
 func (repo *PullRequestsRepoPg) Reassign(prID, oldUserID string) (*PullRequest, string, error) {
 	repo.logger.Debugw("Reassign()", "prID", prID, "oldUserID", oldUserID)
 
+	start := time.Now()
+	var err error
+
+	defer func() {
+		metrics.ObservePROp("reassign_pr", start, err)
+	}()
+
 	if prID == "" || oldUserID == "" {
 		repo.logger.Warnw("No PR ID or oldUserID found")
 		return nil, "", ErrNotAssigned
@@ -159,7 +189,7 @@ func (repo *PullRequestsRepoPg) Reassign(prID, oldUserID string) (*PullRequest, 
 	var updatedPR *PullRequest
 	var replacedBy string
 
-	err := repo.db.Transaction(func(tx *gorm.DB) error {
+	err = repo.db.Transaction(func(tx *gorm.DB) error {
 		var pr PullRequest
 		if err := repo.lockAndLoadPR(tx, prID, &pr); err != nil {
 			repo.logger.Errorw("Error loading PR", "prID", prID, "err", err)
@@ -284,6 +314,13 @@ func (repo *PullRequestsRepoPg) reloadPR(tx *gorm.DB, prID string, pr *PullReque
 func (repo *PullRequestsRepoPg) ListPRsByReviewer(userID string) ([]*PullRequest, error) {
 	repo.logger.Debugw("ListPRsByReviewer()", "userID", userID)
 
+	start := time.Now()
+	var err error
+
+	defer func() {
+		metrics.ObservePROp("list_prs_by_reviewer", start, err)
+	}()
+
 	if userID == "" {
 		repo.logger.Warnw("userID is empty", "userID", userID)
 		return []*PullRequest{}, nil
@@ -291,7 +328,7 @@ func (repo *PullRequestsRepoPg) ListPRsByReviewer(userID string) ([]*PullRequest
 
 	var prShort []*PullRequest
 
-	err := repo.db.Transaction(func(tx *gorm.DB) error {
+	err = repo.db.Transaction(func(tx *gorm.DB) error {
 		var ids []string
 		if err := tx.Model(&PRReviewer{}).
 			Where("user_id = ?", userID).
@@ -341,14 +378,21 @@ func (repo *PullRequestsRepoPg) ListPRsByReviewer(userID string) ([]*PullRequest
 func (repo *PullRequestsRepoPg) GetTeamPRStats(teamName string) ([]*UserStats, error) {
 	repo.logger.Debugw("GetTeamPRStats()", "teamName", teamName)
 
+	start := time.Now()
+	var err error
+
+	defer func() {
+		metrics.ObservePROp("get_team_pr_stats", start, err)
+	}()
+
 	var results []*UserStats
 
-	err := repo.db.Table("pr_reviewers").
-		Select("pr_reviewers.user_id, COUNT(CASE WHEN pull_requests.status = ? THEN 1 END) as open_count, COUNT(CASE WHEN pull_requests.status = ? THEN 1 END) as merged_count", StatusOpen, StatusMerged).
-		Joins("JOIN pull_requests ON pr_reviewers.pull_request_id = pull_requests.pull_request_id").
-		Joins("JOIN users ON pr_reviewers.user_id = users.user_id").
+	err = repo.db.Table("users").
+		Select("users.user_id, COALESCE(COUNT(CASE WHEN pull_requests.status = ? THEN 1 END), 0) as open_count, COALESCE(COUNT(CASE WHEN pull_requests.status = ? THEN 1 END), 0) as merged_count", StatusOpen, StatusMerged).
+		Joins("LEFT JOIN pr_reviewers ON pr_reviewers.user_id = users.user_id").
+		Joins("LEFT JOIN pull_requests ON pr_reviewers.pull_request_id = pull_requests.pull_request_id").
 		Where("users.team_name = ?", teamName).
-		Group("pr_reviewers.user_id").
+		Group("users.user_id").
 		Scan(&results).Error
 
 	if err != nil {

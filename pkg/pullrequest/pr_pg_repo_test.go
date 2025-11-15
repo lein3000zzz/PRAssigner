@@ -34,8 +34,10 @@ func PRMatcher() sqlmock.QueryMatcher {
 		if strings.HasPrefix(normalize(actual), normalize(expected)) {
 			return nil
 		}
+
 		log.Println(actual)
 		log.Println(expected)
+
 		return sqlmock.ErrCancelled
 	})
 }
@@ -515,7 +517,7 @@ func TestPullRequestsRepoPg_GetTeamPRStats(t *testing.T) {
 				rows := sqlmock.NewRows([]string{"user_id", "open_count", "merged_count"}).
 					AddRow("user-456", int64(2), int64(1)).
 					AddRow("user-789", int64(1), int64(3))
-				m.ExpectQuery(`SELECT pr_reviewers.user_id`).WillReturnRows(rows)
+				m.ExpectQuery(`SELECT users.user_id`).WillReturnRows(rows)
 			},
 			wantStats: []*pullrequest.UserStats{
 				{UserID: "user-456", OpenCount: 2, MergedCount: 1},
@@ -526,7 +528,7 @@ func TestPullRequestsRepoPg_GetTeamPRStats(t *testing.T) {
 			name:     "sql error",
 			teamName: "backend",
 			mockFunc: func(m sqlmock.Sqlmock) {
-				m.ExpectQuery(`SELECT pr_reviewers.user_id`).WillReturnError(errors.New("invalid db"))
+				m.ExpectQuery(`SELECT users.user_id`).WillReturnError(errors.New("invalid db"))
 			},
 			wantErr: errors.New("invalid db"),
 		},

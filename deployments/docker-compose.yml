@@ -1,4 +1,17 @@
 services:
+  assigner:
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile
+    env_file:
+      - ../prod.env
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+
   db:
     container_name: postgres
     image: postgres:16
@@ -7,13 +20,14 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - dbassigner:/var/lib/postgresql/data
+      - ./opt/postgresql/data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d assigner"]
       interval: 30s
       timeout: 5s
       retries: 10
-      
+    restart: always
+
   migrate:
     image: postgres:16
     depends_on:
@@ -26,5 +40,32 @@ services:
     entrypoint: [ "sh","-c","PGPASSWORD=$$POSTGRES_PASSWORD psql -h db -U $$POSTGRES_USER -d $$POSTGRES_DB -f /migration.sql" ]
     restart: "no"
 
-volumes:
-  dbassigner: {}
+  # при желании и vmalert + alertmanager + alertmanager-bot, но это уже другой момент
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.129.1
+    command:
+      - --storageDataPath=/victoria-metrics-data
+      - --retentionPeriod=15d
+      - --promscrape.config=/etc/prometheus/prometheus.yml
+      - --promscrape.config.strictParse=true
+    volumes:
+      - ./opt/victoriametrics/data:/victoria-metrics-data
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    #    ports:
+    #      - "8428:8428" # Подходит под апи прометеуса,
+    depends_on:
+      assigner:
+        condition: service_started
+    restart: always
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: grafana
+    depends_on:
+      - victoriametrics
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./opt/grafana/data:/var/lib/grafana
+      - ./opt/grafana-config/provisioning:/etc/grafana/provisioning:ro
+    restart: always

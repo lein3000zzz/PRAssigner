@@ -1,11 +1,13 @@
 package initializers
 
 import (
+	"assignerPR/internal/metrics"
 	"assignerPR/pkg/handlers"
 	"assignerPR/pkg/pullrequest"
 	"assignerPR/pkg/team"
 	"assignerPR/pkg/user"
 
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
@@ -86,6 +88,7 @@ func initUserRoutes(router *gin.Engine, userHandler *handlers.UserHandler) {
 
 func initPullRequestRoutes(router *gin.Engine, pullRequestHandler *handlers.PullRequestHandler) {
 	prsGroup := router.Group("/pullRequest")
+
 	prsGroup.POST("/create", pullRequestHandler.CreatePR)
 	prsGroup.POST("/merge", pullRequestHandler.Merge)
 	prsGroup.POST("/reassign", pullRequestHandler.ReassignPR)
@@ -93,7 +96,21 @@ func initPullRequestRoutes(router *gin.Engine, pullRequestHandler *handlers.Pull
 
 func initTeamRoutes(router *gin.Engine, teamHandler *handlers.TeamHandler) {
 	teamsGroup := router.Group("/team")
+
 	teamsGroup.POST("/add", teamHandler.AddTeam)
 	teamsGroup.GET("/get", teamHandler.GetTeam)
 	teamsGroup.GET("/pr-stats", teamHandler.StatsTeam)
+}
+
+func initpprof(router *gin.Engine) {
+	if os.Getenv("ENVIRONMENT") == "LOCAL" {
+		pprof.Register(router)
+	}
+}
+
+// initMetrics так сделан для демонстрации, вообще это не совсем корректно - надо запускать на отдельном порте,
+// чтобы все это чудо в виде метрик не было доступно для лишних глаз
+func initMetrics(router *gin.Engine) {
+	router.Use(metrics.GinMiddleware)
+	router.GET("/metrics", metrics.Handler())
 }

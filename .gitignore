@@ -1,3 +1,6 @@
 .idea
 Backend-trainee-assignment-autumn-2025.md
 openapi.yml
+deployments/opt/postgresql
+deployments/opt/victoriametrics
+deployments/opt/grafana

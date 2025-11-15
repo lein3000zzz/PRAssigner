@@ -5,8 +5,12 @@ import (
 	"assignerPR/pkg/pullrequest"
 	"assignerPR/pkg/team"
 	"assignerPR/pkg/user"
+	"context"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	ginzap "github.com/gin-contrib/zap"
@@ -40,13 +44,45 @@ func RunPRAssigner() {
 	prHandler := handlers.NewPullRequestHandler(logger, prRepo)
 
 	router := gin.New()
-	router.Use(ginzap.Ginzap(zapLogger, time.RFC3339, true))
+	router.Use(ginzap.GinzapWithConfig(zapLogger, &ginzap.Config{
+		TimeFormat: time.RFC3339,
+		UTC:        true,
+		Skipper: func(c *gin.Context) bool {
+			return c.Request.URL.Path == "/metrics" && c.Request.Method == "GET"
+		},
+	}))
 
 	router.Use(ginzap.RecoveryWithZap(zapLogger, true))
 
 	initUserRoutes(router, userHandler)
 	initTeamRoutes(router, teamHandler)
 	initPullRequestRoutes(router, prHandler)
+	initMetrics(router)
+	initpprof(router)
 
-	logger.Fatal(router.Run(":" + os.Getenv("PORT")))
+	srv := &http.Server{
+		Addr:    ":" + os.Getenv("PORT"),
+		Handler: router,
+	}
+
+	go func() {
+		logger.Info("Starting server on port " + os.Getenv("PORT"))
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Fatal("listen: %s\n", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("Shutting down the server")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.Fatal("the serrver was forced to shutdown:", err)
+	}
+
+	logger.Info("Server exited")
 }
