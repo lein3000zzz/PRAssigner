@@ -36,7 +36,7 @@ func RunPRAssigner() {
 	prRepo := pullrequest.NewPullRequestsRepoPg(logger, db)
 
 	userHandler := handlers.NewUserHandler(logger, userRepo, prRepo)
-	teamHandler := handlers.NewTeamHandler(logger, teamRepo)
+	teamHandler := handlers.NewTeamHandler(logger, teamRepo, prRepo)
 	prHandler := handlers.NewPullRequestHandler(logger, prRepo)
 
 	router := gin.New()

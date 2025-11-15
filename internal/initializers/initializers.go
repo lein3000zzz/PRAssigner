@@ -95,4 +95,5 @@ func initTeamRoutes(router *gin.Engine, teamHandler *handlers.TeamHandler) {
 	teamsGroup := router.Group("/team")
 	teamsGroup.POST("/add", teamHandler.AddTeam)
 	teamsGroup.GET("/get", teamHandler.GetTeam)
+	teamsGroup.GET("/pr-stats", teamHandler.StatsTeam)
 }

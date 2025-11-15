@@ -1,0 +1,495 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>pullrequest: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">assignerPR/pkg/pullrequest/pull_request_pg_repo.go (81.4%)</option>
+				
+				<option value="file1">assignerPR/pkg/pullrequest/utils.go (71.4%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package pullrequest
+
+import (
+        "assignerPR/pkg/user"
+        "errors"
+        "sort"
+        "strings"
+        "time"
+
+        "go.uber.org/zap"
+        "gorm.io/gorm"
+        "gorm.io/gorm/clause"
+)
+
+type PRReviewer struct {
+        PullRequestID string `gorm:"column:pull_request_id"`
+        UserID        string `gorm:"column:user_id"`
+}
+
+type PullRequestsRepoPg struct {
+        logger *zap.SugaredLogger
+        db     *gorm.DB
+}
+
+func NewPullRequestsRepoPg(logger *zap.SugaredLogger, db *gorm.DB) *PullRequestsRepoPg <span class="cov8" title="1">{
+        return &amp;PullRequestsRepoPg{
+                logger: logger,
+                db:     db,
+        }
+}</span>
+
+func (repo *PullRequestsRepoPg) CreatePR(prID, prName, authorID string) (*PullRequest, error) <span class="cov8" title="1">{
+        repo.logger.Debugw("CreatePR()", "prID", prID, "authorID", authorID)
+
+        var pr *PullRequest
+        err := repo.db.Transaction(func(tx *gorm.DB) error </span><span class="cov8" title="1">{
+                var author user.User
+                if err := tx.First(&amp;author, "user_id = ?", authorID).Error; err != nil </span><span class="cov8" title="1">{
+                        if errors.Is(err, gorm.ErrRecordNotFound) || strings.Contains(err.Error(), "SQLSTATE 23505") </span><span class="cov8" title="1">{
+                                repo.logger.Warnw("Author does not exist", "prID", prID, "authorID", authorID)
+                                return ErrPRNotFound
+                        }</span>
+                        <span class="cov0" title="0">repo.logger.Errorw("Error finding author", "prID", prID, "authorID", authorID)
+                        return err</span>
+                }
+
+                <span class="cov8" title="1">pr = &amp;PullRequest{
+                        PullRequestID:   prID,
+                        PullRequestName: prName,
+                        AuthorID:        authorID,
+                        Status:          StatusOpen,
+                }
+
+                if err := tx.Create(pr).Error; err != nil </span><span class="cov8" title="1">{
+                        if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "SQLSTATE 23505") </span><span class="cov8" title="1">{
+                                repo.logger.Warnw("PR already exists", "prID", prID, "authorID", authorID)
+                                return ErrPRExists
+                        }</span>
+                        <span class="cov0" title="0">repo.logger.Errorw("Error creating PR", "prID", prID, "authorID", authorID)
+                        return err</span>
+                }
+
+                <span class="cov8" title="1">reviewers, err := repo.pickInitialReviewersInTx(tx, author.TeamName, authorID)
+                if err != nil </span><span class="cov0" title="0">{
+                        repo.logger.Errorw("Error picking initial reviewers", "prID", prID, "authorID", authorID)
+                        return err
+                }</span>
+
+                <span class="cov8" title="1">if len(reviewers) &gt; 0 </span><span class="cov8" title="1">{
+                        if err := tx.Model(pr).Association("AssignedReviewers").Append(reviewers); err != nil </span><span class="cov0" title="0">{
+                                repo.logger.Errorw("Error appending reviewers", "prID", prID, "authorID", authorID)
+                                return err
+                        }</span>
+                }
+
+                <span class="cov8" title="1">return tx.Preload("AssignedReviewers", func(tx2 *gorm.DB) *gorm.DB </span><span class="cov8" title="1">{
+                        return tx2.Order("users.user_id ASC")
+                }</span>).First(pr, "pull_request_id = ?", prID).Error
+        })
+
+        <span class="cov8" title="1">if err != nil </span><span class="cov8" title="1">{
+                repo.logger.Errorw("Error creating PR", "prID", prID, "authorID", authorID)
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">repo.logger.Debugw("PR created", "prID", prID, "authorID", authorID)
+        return pr, err</span>
+}
+
+func (repo *PullRequestsRepoPg) pickInitialReviewersInTx(tx *gorm.DB, teamName, authorID string) ([]*user.User, error) <span class="cov8" title="1">{
+        repo.logger.Debugw("pickInitialReviewersInTx()", "teamName", teamName, "authorID", authorID)
+
+        var reviewers []*user.User
+        // Maybe тут можно было как-то покрасивее написать запрос с использованием самих моделей, но я до красивого варианта не дошел.
+        err := tx.
+                Joins("LEFT JOIN pr_reviewers prr ON prr.user_id = users.user_id").
+                Joins("LEFT JOIN pull_requests pr ON pr.pull_request_id = prr.pull_request_id AND pr.status = ?", StatusOpen).
+                Where("users.team_name = ? AND users.is_active = TRUE AND users.user_id &lt;&gt; ?", teamName, authorID).
+                Group("users.user_id").
+                Order("COUNT(prr.user_id) ASC").
+                Order("RANDOM()").
+                Limit(MaxReviewersPerPR).
+                Find(&amp;reviewers).Error
+
+        repo.logger.Debugw("pickInitialReviewersInTx()", "err", err)
+        return reviewers, err
+}</span>
+
+func (repo *PullRequestsRepoPg) Merge(prID string) (*PullRequest, error) <span class="cov8" title="1">{
+        repo.logger.Debugw("Merge()", "prID", prID)
+
+        var pr PullRequest
+        err := repo.db.Transaction(func(tx *gorm.DB) error </span><span class="cov8" title="1">{
+                if err := repo.lockAndLoadPR(tx, prID, &amp;pr); err != nil </span><span class="cov8" title="1">{
+                        repo.logger.Errorw("Error loading PR", "prID", prID, "err", err)
+                        return err
+                }</span>
+
+                <span class="cov8" title="1">if pr.Status == StatusMerged </span><span class="cov8" title="1">{
+                        repo.logger.Warnw("PR already merged", "prID", prID)
+                        return nil
+                }</span>
+
+                <span class="cov8" title="1">now := time.Now().UTC()
+                pr.Status = StatusMerged
+                pr.MergedAt = &amp;now
+                pr.UpdatedAt = now
+
+                if err := tx.Model(&amp;pr).
+                        Select("status", "merged_at", "updated_at").
+                        Updates(&amp;pr).Error; err != nil </span><span class="cov0" title="0">{
+                        repo.logger.Errorw("Error updating PR merged", "prID", prID)
+                        return err
+                }</span>
+
+                <span class="cov8" title="1">repo.logger.Debugw("PR merged", "prID", prID)
+                return nil</span>
+        })
+
+        <span class="cov8" title="1">if err != nil </span><span class="cov8" title="1">{
+                repo.logger.Errorw("Error updating PR merged", "prID", prID)
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">repo.logger.Debugw("Merged", "prID", prID)
+        return &amp;pr, nil</span>
+}
+
+func (repo *PullRequestsRepoPg) Reassign(prID, oldUserID string) (*PullRequest, string, error) <span class="cov8" title="1">{
+        repo.logger.Debugw("Reassign()", "prID", prID, "oldUserID", oldUserID)
+
+        if prID == "" || oldUserID == "" </span><span class="cov0" title="0">{
+                repo.logger.Warnw("No PR ID or oldUserID found")
+                return nil, "", ErrNotAssigned
+        }</span>
+
+        <span class="cov8" title="1">var updatedPR *PullRequest
+        var replacedBy string
+
+        err := repo.db.Transaction(func(tx *gorm.DB) error </span><span class="cov8" title="1">{
+                var pr PullRequest
+                if err := repo.lockAndLoadPR(tx, prID, &amp;pr); err != nil </span><span class="cov8" title="1">{
+                        repo.logger.Errorw("Error loading PR", "prID", prID, "err", err)
+                        return err
+                }</span>
+
+                <span class="cov8" title="1">if pr.Status == StatusMerged </span><span class="cov0" title="0">{
+                        repo.logger.Warnw("PR already merged", "prID", prID)
+                        return ErrPRMerged
+                }</span>
+
+                <span class="cov8" title="1">oldReviewer, ok := findReviewer(pr.AssignedReviewers, oldUserID)
+                if !ok </span><span class="cov0" title="0">{
+                        repo.logger.Warnw("no reviewer to reassign", "prID", prID, "oldUserID", oldUserID)
+                        return ErrNotAssigned
+                }</span>
+
+                <span class="cov8" title="1">excludeSet := make(map[string]struct{}, len(pr.AssignedReviewers)+2)
+                excludeSet[oldUserID] = struct{}{}
+                if pr.AuthorID != "" </span><span class="cov8" title="1">{
+                        excludeSet[pr.AuthorID] = struct{}{}
+                }</span>
+                <span class="cov8" title="1">for _, r := range pr.AssignedReviewers </span><span class="cov8" title="1">{
+                        excludeSet[r.UserID] = struct{}{}
+                }</span>
+                <span class="cov8" title="1">exclude := make([]string, 0, len(excludeSet))
+                for id := range excludeSet </span><span class="cov8" title="1">{
+                        exclude = append(exclude, id)
+                }</span>
+
+                <span class="cov8" title="1">var candidate user.User
+                query := tx.Model(&amp;user.User{}).
+                        Joins("LEFT JOIN pr_reviewers prr ON prr.user_id = users.user_id").
+                        Joins("LEFT JOIN pull_requests pr ON pr.pull_request_id = prr.pull_request_id AND pr.status = ?", StatusOpen).
+                        Where("users.team_name = ? AND users.is_active = TRUE", oldReviewer.TeamName).
+                        Group("users.user_id")
+
+                if len(exclude) &gt; 0 </span><span class="cov8" title="1">{
+                        query = query.Where("users.user_id NOT IN ?", exclude)
+                }</span>
+
+                <span class="cov8" title="1">if err := query.
+                        Order("COUNT(prr.user_id) ASC").
+                        Order("RANDOM()").
+                        Limit(1).
+                        First(&amp;candidate).Error; err != nil </span><span class="cov8" title="1">{
+                        if errors.Is(err, gorm.ErrRecordNotFound) || strings.Contains(err.Error(), "SQLSTATE 23505") </span><span class="cov8" title="1">{
+                                repo.logger.Errorw("no candidates for reassign", "prID", prID, "oldUserID", oldUserID)
+                                return ErrNoCandidate
+                        }</span>
+                        <span class="cov0" title="0">repo.logger.Errorw("error reassigning PR", "prID", prID, "err", err)
+                        return err</span>
+                }
+
+                <span class="cov8" title="1">newReviewers := make([]*user.User, 0, len(pr.AssignedReviewers))
+                for _, r := range pr.AssignedReviewers </span><span class="cov8" title="1">{
+                        if r.UserID != oldReviewer.UserID </span><span class="cov8" title="1">{
+                                newReviewers = append(newReviewers, r)
+                        }</span>
+                }
+                <span class="cov8" title="1">newReviewers = append(newReviewers, &amp;candidate)
+
+                if err := tx.Model(&amp;pr).Association("AssignedReviewers").Replace(newReviewers); err != nil </span><span class="cov0" title="0">{
+                        repo.logger.Errorw("error reassigning PR", "prID", prID, "err", err)
+                        return err
+                }</span>
+
+                <span class="cov8" title="1">if err := repo.reloadPR(tx, prID, &amp;pr); err != nil </span><span class="cov0" title="0">{
+                        repo.logger.Errorw("error reassigning PR", "prID", prID, "err", err)
+                        return err
+                }</span>
+
+                <span class="cov8" title="1">updatedPR = &amp;pr
+                replacedBy = candidate.UserID
+                repo.logger.Debugw("Reassigned PR", "prID", prID)
+
+                return nil</span>
+        })
+
+        <span class="cov8" title="1">if err != nil </span><span class="cov8" title="1">{
+                repo.logger.Errorw("Error reassigning PR", "prID", prID)
+                return nil, "", err
+        }</span>
+
+        <span class="cov8" title="1">repo.logger.Debugw("Reassigned PR", "prID", prID, "oldUserID", oldUserID, "replacedBy", replacedBy)
+        return updatedPR, replacedBy, nil</span>
+}
+
+func (repo *PullRequestsRepoPg) lockAndLoadPR(tx *gorm.DB, prID string, pr *PullRequest) error <span class="cov8" title="1">{
+        repo.logger.Debugw("lockAndLoadPR()", "prID", prID)
+
+        if err := tx.
+                Clauses(clause.Locking{Strength: "UPDATE"}).
+                Preload("AssignedReviewers", func(tx2 *gorm.DB) *gorm.DB </span><span class="cov8" title="1">{
+                        return tx2.Order("users.user_id ASC")
+                }</span>).
+                First(pr, "pull_request_id = ?", prID).Error; err != nil <span class="cov8" title="1">{
+                if errors.Is(err, gorm.ErrRecordNotFound) </span><span class="cov8" title="1">{
+                        repo.logger.Warnw("PR does not exist", "prID", prID)
+                        return ErrPRNotFound
+                }</span>
+
+                <span class="cov0" title="0">repo.logger.Errorw("Error finding PR", "prID", prID)
+                return err</span>
+        }
+
+        <span class="cov8" title="1">repo.logger.Debugw("PR found", "prID", prID)
+        return nil</span>
+}
+
+func (repo *PullRequestsRepoPg) reloadPR(tx *gorm.DB, prID string, pr *PullRequest) error <span class="cov8" title="1">{
+        repo.logger.Debugw("reloadPR()", "prID", prID)
+
+        return tx.
+                Preload("AssignedReviewers", func(tx2 *gorm.DB) *gorm.DB </span><span class="cov8" title="1">{
+                        return tx2.Order("users.user_id ASC")
+                }</span>).
+                First(pr, "pull_request_id = ?", prID).Error
+}
+
+func (repo *PullRequestsRepoPg) ListPRsByReviewer(userID string) ([]*PullRequest, error) <span class="cov8" title="1">{
+        repo.logger.Debugw("ListPRsByReviewer()", "userID", userID)
+
+        if userID == "" </span><span class="cov0" title="0">{
+                repo.logger.Warnw("userID is empty", "userID", userID)
+                return []*PullRequest{}, nil
+        }</span>
+
+        <span class="cov8" title="1">var prShort []*PullRequest
+
+        err := repo.db.Transaction(func(tx *gorm.DB) error </span><span class="cov8" title="1">{
+                var ids []string
+                if err := tx.Model(&amp;PRReviewer{}).
+                        Where("user_id = ?", userID).
+                        Pluck("pull_request_id", &amp;ids).Error; err != nil </span><span class="cov0" title="0">{
+                        repo.logger.Errorw("error plucking pr ids", "userID", userID, "err", err)
+                        return err
+                }</span>
+                <span class="cov8" title="1">if len(ids) == 0 </span><span class="cov8" title="1">{
+                        prShort = []*PullRequest{}
+                        repo.logger.Warnw("no PR reviewer", "userID", userID)
+                        return nil
+                }</span>
+
+                <span class="cov8" title="1">order := make(map[string]int, len(ids))
+                for i, id := range ids </span><span class="cov8" title="1">{
+                        order[id] = i
+                }</span>
+                <span class="cov8" title="1">fallback := len(ids)
+
+                var rows []*PullRequest
+                if err := tx.Model(&amp;PullRequest{}).
+                        Where("pull_request_id IN ?", ids).
+                        Find(&amp;rows).Error; err != nil </span><span class="cov0" title="0">{
+                        repo.logger.Errorw("error loading prs", "userID", userID, "err", err)
+                        return err
+                }</span>
+
+                <span class="cov8" title="1">sort.SliceStable(rows, func(i, j int) bool </span><span class="cov8" title="1">{
+                        oi := orderIndex(order, rows[i].PullRequestID, fallback)
+                        oj := orderIndex(order, rows[j].PullRequestID, fallback)
+                        return oi &lt; oj
+                }</span>)
+
+                <span class="cov8" title="1">prShort = rows
+                return nil</span>
+        })
+
+        <span class="cov8" title="1">if err != nil </span><span class="cov0" title="0">{
+                repo.logger.Errorw("error loading prs", "userID", userID, "err", err)
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">repo.logger.Debugw("listed PRs by reviewer")
+        return prShort, nil</span>
+}
+
+func (repo *PullRequestsRepoPg) GetTeamPRStats(teamName string) ([]*UserStats, error) <span class="cov8" title="1">{
+        repo.logger.Debugw("GetTeamPRStats()", "teamName", teamName)
+
+        var results []*UserStats
+
+        err := repo.db.Table("pr_reviewers").
+                Select("pr_reviewers.user_id, COUNT(CASE WHEN pull_requests.status = ? THEN 1 END) as open_count, COUNT(CASE WHEN pull_requests.status = ? THEN 1 END) as merged_count", StatusOpen, StatusMerged).
+                Joins("JOIN pull_requests ON pr_reviewers.pull_request_id = pull_requests.pull_request_id").
+                Joins("JOIN users ON pr_reviewers.user_id = users.user_id").
+                Where("users.team_name = ?", teamName).
+                Group("pr_reviewers.user_id").
+                Scan(&amp;results).Error
+
+        if err != nil </span><span class="cov8" title="1">{
+                repo.logger.Errorw("Error getting team PR stats", "teamName", teamName, "err", err)
+                return nil, err
+        }</span>
+
+        //stats := make(map[string]*MemberStats)
+        //for _, stat := range results {
+        //        stats[stat.UserID] = &amp;stat
+        //        //stats[stat.userID] = &amp;MemberStats{
+        //        //        OpenCount:   stat.OpenCount,
+        //        //        MergedCount: stat.MergedCount,
+        //        //}
+        //}
+
+        <span class="cov8" title="1">repo.logger.Debugw("Got team PR stats", "teamName", teamName, "userCount", len(results))
+        return results, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package pullrequest
+
+import "assignerPR/pkg/user"
+
+// можно было бы для корректного логирования сделать это методами репозитория, но вообще эти функции могут быть использованы в разных репозиториях
+
+func findReviewer(reviewers []*user.User, userID string) (*user.User, bool) <span class="cov8" title="1">{
+        for _, reviewer := range reviewers </span><span class="cov8" title="1">{
+                if reviewer.UserID == userID </span><span class="cov8" title="1">{
+                        return reviewer, true
+                }</span>
+        }
+        <span class="cov0" title="0">return nil, false</span>
+}
+
+func orderIndex(order map[string]int, id string, fallback int) int <span class="cov8" title="1">{
+        if idx, ok := order[id]; ok </span><span class="cov8" title="1">{
+                return idx
+        }</span>
+        <span class="cov0" title="0">return fallback</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

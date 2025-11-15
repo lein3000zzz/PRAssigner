@@ -35,9 +35,17 @@ type PullRequest struct {
 	MergedAt          *time.Time   `gorm:"column:merged_at"`
 }
 
+// UserStats - статистика для юзера, относится к дополнительному заданию - сделал статистику PR для членов команды
+type UserStats struct {
+	UserID      string
+	OpenCount   int
+	MergedCount int
+}
+
 type PullRequestsRepo interface {
 	CreatePR(prID, prName, authorID string) (*PullRequest, error)
 	Merge(prID string) (*PullRequest, error)
 	Reassign(prID, oldUserID string) (pr *PullRequest, replacedBy string, err error)
 	ListPRsByReviewer(userID string) ([]*PullRequest, error)
+	GetTeamPRStats(teamName string) ([]*UserStats, error)
 }

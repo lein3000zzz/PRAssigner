@@ -1,6 +1,7 @@
 package apidto
 
 import (
+	"assignerPR/pkg/pullrequest"
 	"assignerPR/pkg/team"
 	"assignerPR/pkg/user"
 )
@@ -47,5 +48,33 @@ func ToTeam(dto Team) *team.Team {
 	return &team.Team{
 		TeamName: dto.TeamName,
 		Members:  users,
+	}
+}
+
+type UserStats struct {
+	OpenCount   int `json:"open_count"`
+	MergedCount int `json:"merged_count"`
+}
+
+func FromUserStatsSliceToMap(users []*pullrequest.UserStats) map[string]UserStats {
+	memberStats := make(map[string]UserStats, len(users))
+	for _, usr := range users {
+		memberStats[usr.UserID] = FromUserStats(usr)
+	}
+	return memberStats
+}
+
+func FromUserStats(us *pullrequest.UserStats) UserStats {
+	return UserStats{
+		OpenCount:   us.OpenCount,
+		MergedCount: us.MergedCount,
+	}
+}
+
+func ToUserStats(dto UserStats, userID string) *pullrequest.UserStats {
+	return &pullrequest.UserStats{
+		UserID:      userID,
+		OpenCount:   dto.OpenCount,
+		MergedCount: dto.MergedCount,
 	}
 }

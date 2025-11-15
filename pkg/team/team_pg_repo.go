@@ -31,7 +31,7 @@ func (repo *TeamsRepoPg) CreateTeam(teamName string, members []*user.User) (*Tea
 			TeamName: teamName,
 		}
 		if err := tx.Create(&team).Error; err != nil {
-			// Я не знаю, почему gorm все еще не оборачивает корректно временами ErrDuplicateKey
+			// На сложных операциях, (как пример, транзакция), gorm не всегда отлавливает и оборачивает ошибки, возвращая просто ошибку бд
 			if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "SQLSTATE 23505") {
 				repo.logger.Warnw("couldnt create team - already exists", "teamName", teamName, "membersCount", len(members))
 				return ErrTeamExists

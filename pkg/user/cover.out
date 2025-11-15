@@ -1,0 +1,7 @@
+mode: set
+assignerPR/pkg/user/user_pg_repo.go:19.74,24.2 1 1
+assignerPR/pkg/user/user_pg_repo.go:26.83,36.21 4 1
+assignerPR/pkg/user/user_pg_repo.go:36.21,39.3 2 1
+assignerPR/pkg/user/user_pg_repo.go:41.2,41.26 1 1
+assignerPR/pkg/user/user_pg_repo.go:41.26,44.3 2 1
+assignerPR/pkg/user/user_pg_repo.go:46.2,47.19 2 1

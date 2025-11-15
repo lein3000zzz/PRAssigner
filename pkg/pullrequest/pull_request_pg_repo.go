@@ -4,6 +4,7 @@ import (
 	"assignerPR/pkg/user"
 	"errors"
 	"sort"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -35,7 +36,8 @@ func (repo *PullRequestsRepoPg) CreatePR(prID, prName, authorID string) (*PullRe
 	err := repo.db.Transaction(func(tx *gorm.DB) error {
 		var author user.User
 		if err := tx.First(&author, "user_id = ?", authorID).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
+			// На сложных операциях, (как пример, транзакция), gorm не всегда отлавливает и оборачивает ошибки, возвращая просто ошибку бд
+			if errors.Is(err, gorm.ErrRecordNotFound) || strings.Contains(err.Error(), "SQLSTATE 23505") {
 				repo.logger.Warnw("Author does not exist", "prID", prID, "authorID", authorID)
 				return ErrPRNotFound
 			}
@@ -51,7 +53,8 @@ func (repo *PullRequestsRepoPg) CreatePR(prID, prName, authorID string) (*PullRe
 		}
 
 		if err := tx.Create(pr).Error; err != nil {
-			if errors.Is(err, gorm.ErrDuplicatedKey) {
+			// На сложных операциях, (как пример, транзакция), gorm не всегда отлавливает и оборачивает ошибки, возвращая просто ошибку бд
+			if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "SQLSTATE 23505") {
 				repo.logger.Warnw("PR already exists", "prID", prID, "authorID", authorID)
 				return ErrPRExists
 			}
@@ -203,7 +206,8 @@ func (repo *PullRequestsRepoPg) Reassign(prID, oldUserID string) (*PullRequest, 
 			Order("RANDOM()").
 			Limit(1).
 			First(&candidate).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
+			// На сложных операциях, (как пример, транзакция), gorm не всегда отлавливает и оборачивает ошибки, возвращая просто ошибку бд
+			if errors.Is(err, gorm.ErrRecordNotFound) || strings.Contains(err.Error(), "SQLSTATE 23505") {
 				repo.logger.Errorw("no candidates for reassign", "prID", prID, "oldUserID", oldUserID)
 				return ErrNoCandidate
 			}
@@ -332,4 +336,35 @@ func (repo *PullRequestsRepoPg) ListPRsByReviewer(userID string) ([]*PullRequest
 
 	repo.logger.Debugw("listed PRs by reviewer")
 	return prShort, nil
+}
+
+func (repo *PullRequestsRepoPg) GetTeamPRStats(teamName string) ([]*UserStats, error) {
+	repo.logger.Debugw("GetTeamPRStats()", "teamName", teamName)
+
+	var results []*UserStats
+
+	err := repo.db.Table("pr_reviewers").
+		Select("pr_reviewers.user_id, COUNT(CASE WHEN pull_requests.status = ? THEN 1 END) as open_count, COUNT(CASE WHEN pull_requests.status = ? THEN 1 END) as merged_count", StatusOpen, StatusMerged).
+		Joins("JOIN pull_requests ON pr_reviewers.pull_request_id = pull_requests.pull_request_id").
+		Joins("JOIN users ON pr_reviewers.user_id = users.user_id").
+		Where("users.team_name = ?", teamName).
+		Group("pr_reviewers.user_id").
+		Scan(&results).Error
+
+	if err != nil {
+		repo.logger.Errorw("Error getting team PR stats", "teamName", teamName, "err", err)
+		return nil, err
+	}
+
+	//stats := make(map[string]*MemberStats)
+	//for _, stat := range results {
+	//	stats[stat.UserID] = &stat
+	//	//stats[stat.userID] = &MemberStats{
+	//	//	OpenCount:   stat.OpenCount,
+	//	//	MergedCount: stat.MergedCount,
+	//	//}
+	//}
+
+	repo.logger.Debugw("Got team PR stats", "teamName", teamName, "userCount", len(results))
+	return results, nil
 }

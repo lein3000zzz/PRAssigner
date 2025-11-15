@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"assignerPR/pkg/handlers/apidto"
 	"assignerPR/pkg/handlers/apierr"
+	"assignerPR/pkg/pullrequest"
 	"assignerPR/pkg/team"
 	"assignerPR/pkg/user"
 	"net/http"
@@ -11,14 +13,16 @@ import (
 )
 
 type TeamHandler struct {
-	repo   team.TeamsRepo
-	logger *zap.SugaredLogger
+	prRepo    pullrequest.PullRequestsRepo
+	teamsRepo team.TeamsRepo
+	logger    *zap.SugaredLogger
 }
 
-func NewTeamHandler(logger *zap.SugaredLogger, repo team.TeamsRepo) *TeamHandler {
+func NewTeamHandler(logger *zap.SugaredLogger, teamsRepo team.TeamsRepo, prRepo pullrequest.PullRequestsRepo) *TeamHandler {
 	return &TeamHandler{
-		repo:   repo,
-		logger: logger,
+		prRepo:    prRepo,
+		teamsRepo: teamsRepo,
+		logger:    logger,
 	}
 }
 
@@ -82,7 +86,7 @@ func (h *TeamHandler) AddTeam(c *gin.Context) {
 	}
 
 	users := toDomainUsers(req.TeamName, req.Members)
-	returnTeam, err := h.repo.CreateTeam(req.TeamName, users)
+	returnTeam, err := h.teamsRepo.CreateTeam(req.TeamName, users)
 	if err != nil {
 		if apierr.Handle(c, err) {
 			h.logger.Warnw("error creating team", "error", err)
@@ -116,7 +120,7 @@ func (h *TeamHandler) GetTeam(c *gin.Context) {
 		return
 	}
 
-	teamToReturn, err := h.repo.GetTeam(teamName)
+	teamToReturn, err := h.teamsRepo.GetTeam(teamName)
 	if err != nil {
 		if apierr.Handle(c, err) {
 			h.logger.Warnw("error getting teamToReturn", "error", err)
@@ -132,5 +136,36 @@ func (h *TeamHandler) GetTeam(c *gin.Context) {
 	c.JSON(http.StatusOK, getTeamResp{
 		TeamName: teamToReturn.TeamName,
 		Members:  members,
+	})
+}
+
+type teamStatsResponse struct {
+	TeamName  string                      `json:"team_name"`
+	TeamStats map[string]apidto.UserStats `json:"team_stats"`
+}
+
+func (h *TeamHandler) StatsTeam(c *gin.Context) {
+	teamName := c.Query("team_name")
+	if teamName == "" {
+		apierr.WriteApiErrJSON(c, http.StatusBadRequest, apierr.BadRequest)
+		h.logger.Warnw("no team name provided")
+		return
+	}
+
+	usersStats, err := h.prRepo.GetTeamPRStats(teamName)
+	if err != nil {
+		if apierr.Handle(c, err) {
+			h.logger.Warnw("mapped error getting team stats", "error", err)
+			return
+		}
+		h.logger.Errorw("unknown error getting team stats", "error", err)
+		apierr.WriteApiErrJSON(c, http.StatusInternalServerError, apierr.InternalServerError)
+		return
+	}
+
+	userStatsMap := apidto.FromUserStatsSliceToMap(usersStats)
+	c.JSON(http.StatusOK, teamStatsResponse{
+		TeamName:  teamName,
+		TeamStats: userStatsMap,
 	})
 }
