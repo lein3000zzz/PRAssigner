@@ -6,10 +6,12 @@ import (
 	"assignerPR/pkg/team"
 	"assignerPR/pkg/user"
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -57,7 +59,8 @@ func RunPRAssigner() {
 	initUserRoutes(router, userHandler)
 	initTeamRoutes(router, teamHandler)
 	initPullRequestRoutes(router, prHandler)
-	initMetrics(router)
+	metricsSrv := initMetricsServer()
+	initMetricsMdlwr(router)
 	initpprof(router)
 
 	srv := &http.Server{
@@ -66,8 +69,15 @@ func RunPRAssigner() {
 	}
 
 	go func() {
-		logger.Info("Starting server on port " + os.Getenv("PORT"))
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		logger.Info("Starting main server on port " + os.Getenv("PORT"))
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Fatal("listen: %s\n", err)
+		}
+	}()
+
+	go func() {
+		logger.Info("Starting metrics server on port " + os.Getenv("METRICS_PORT"))
+		if err := metricsSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Fatal("listen: %s\n", err)
 		}
 	}()
@@ -78,11 +88,28 @@ func RunPRAssigner() {
 
 	logger.Info("Shutting down the server")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
-		logger.Fatal("the serrver was forced to shutdown:", err)
-	}
+	wg := &sync.WaitGroup{}
+
+	wg.Add(2)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(ctx); err != nil {
+			logger.Fatal("the serrver was forced to shutdown:", err)
+		}
+		wg.Done()
+	}()
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(ctx); err != nil {
+			logger.Fatal("the serrver was forced to shutdown:", err)
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
 
 	logger.Info("Server exited")
 }

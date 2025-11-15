@@ -6,6 +6,7 @@ import (
 	"assignerPR/pkg/pullrequest"
 	"assignerPR/pkg/team"
 	"assignerPR/pkg/user"
+	"net/http"
 
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
@@ -108,9 +109,19 @@ func initpprof(router *gin.Engine) {
 	}
 }
 
-// initMetrics так сделан для демонстрации, вообще это не совсем корректно - надо запускать на отдельном порте,
-// чтобы все это чудо в виде метрик не было доступно для лишних глаз
-func initMetrics(router *gin.Engine) {
+func initMetricsMdlwr(router *gin.Engine) {
 	router.Use(metrics.GinMiddleware)
-	router.GET("/metrics", metrics.Handler())
+}
+
+// Отдельный сервер, чтобы скрыть чувствительную информацию в виде метрик от лишних глаз
+func initMetricsServer() *http.Server {
+	r := gin.Default()
+	r.GET("/metrics", metrics.Handler())
+
+	srv := &http.Server{
+		Addr:    ":" + os.Getenv("METRICS_PORT"),
+		Handler: r,
+	}
+
+	return srv
 }

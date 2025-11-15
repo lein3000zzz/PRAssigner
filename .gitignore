@@ -4,3 +4,4 @@ openapi.yml
 deployments/opt/postgresql
 deployments/opt/victoriametrics
 deployments/opt/grafana
+tools/vegeta
