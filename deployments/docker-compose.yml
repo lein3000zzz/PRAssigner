@@ -6,7 +6,7 @@ services:
     env_file:
       - ../prod.env
     ports:
-      - "8080:8080"
+      - "8080:8080" # метрики идут с порта 8081 внутри виртуального окружения
     depends_on:
       db:
         condition: service_healthy

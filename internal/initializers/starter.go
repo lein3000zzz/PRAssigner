@@ -46,6 +46,8 @@ func RunPRAssigner() {
 	prHandler := handlers.NewPullRequestHandler(logger, prRepo)
 
 	router := gin.New()
+	initMetricsMdlwr(router)
+
 	router.Use(ginzap.GinzapWithConfig(zapLogger, &ginzap.Config{
 		TimeFormat: time.RFC3339,
 		UTC:        true,
@@ -60,7 +62,6 @@ func RunPRAssigner() {
 	initTeamRoutes(router, teamHandler)
 	initPullRequestRoutes(router, prHandler)
 	metricsSrv := initMetricsServer()
-	initMetricsMdlwr(router)
 	initpprof(router)
 
 	srv := &http.Server{

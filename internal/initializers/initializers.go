@@ -115,7 +115,8 @@ func initMetricsMdlwr(router *gin.Engine) {
 
 // Отдельный сервер, чтобы скрыть чувствительную информацию в виде метрик от лишних глаз
 func initMetricsServer() *http.Server {
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.Recovery())
 	r.GET("/metrics", metrics.Handler())
 
 	srv := &http.Server{

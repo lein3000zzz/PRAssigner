@@ -6,6 +6,6 @@ scrape_configs:
   - job_name: assigner
     metrics_path: /metrics
     static_configs:
-      - targets: ["assigner:8080"]
+      - targets: ["assigner:8081"]
 
 # Ну и сюда же еще node-exporter вообще в идеале, но это как будто уже оверкилл для тестового задания...
