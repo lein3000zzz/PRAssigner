@@ -394,16 +394,39 @@ func (repo *PullRequestsRepoPg) GetTeamPRStats(teamName string) ([]*UserStats, e
 
 	var results []*UserStats
 
-	err = repo.db.Table("users").
-		Select("users.user_id, COALESCE(COUNT(CASE WHEN pull_requests.status = ? THEN 1 END), 0) as open_count, "+
-			"COALESCE(COUNT(CASE WHEN pull_requests.status = ? THEN 1 END), 0) as merged_count", StatusOpen, StatusMerged).
-		Joins("LEFT JOIN pr_reviewers ON pr_reviewers.user_id = users.user_id").
-		Joins("LEFT JOIN pull_requests ON pr_reviewers.pull_request_id = pull_requests.pull_request_id").
-		Where("users.team_name = ?", teamName).
-		Group("users.user_id").
-		Scan(&results).Error
+	err = repo.db.Transaction(func(tx *gorm.DB) error {
+		var count int64
+		if err2 := tx.Table("teams").Where("team_name = ?", teamName).Count(&count).Error; err2 != nil {
+			repo.logger.Errorw("error counting users", "teamName", teamName, "err", err2)
+			return err2
+		}
+		if count == 0 {
+			repo.logger.Warnw("team does not exist", "teamName", teamName)
+			return ErrPRNotFound
+		}
+
+		txq := tx.Model(&user.User{}).
+			Select("users.user_id, COALESCE(COUNT(CASE WHEN pull_requests.status = ? THEN 1 END), 0) as open_count, "+
+				"COALESCE(COUNT(CASE WHEN pull_requests.status = ? THEN 1 END), 0) as merged_count", StatusOpen, StatusMerged).
+			Joins("LEFT JOIN pr_reviewers ON pr_reviewers.user_id = users.user_id").
+			Joins("LEFT JOIN pull_requests ON pr_reviewers.pull_request_id = pull_requests.pull_request_id").
+			Where("users.team_name = ?", teamName).
+			Group("users.user_id")
+
+		if scanErr := txq.Scan(&results).Error; scanErr != nil {
+			repo.logger.Errorw("error scanning users", "teamName", teamName, "err", scanErr)
+			return scanErr
+		}
+
+		repo.logger.Debugw("found PR stats", "teamName", teamName, "count", count)
+		return nil
+	})
 
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, ErrPRNotFound) {
+			repo.logger.Warnw("PR stats not found", "teamName", teamName, "err", err)
+			return nil, ErrPRNotFound
+		}
 		repo.logger.Errorw("Error getting team PR stats", "teamName", teamName, "err", err)
 		return nil, err
 	}
