@@ -117,6 +117,30 @@ func (repo *UsersRepoPg) SetIsActive(userID string, isActive bool) (*User, error
         <span class="cov8" title="1">repo.logger.Debugw("got user by id", "userID", userID)
         return &amp;user, nil</span>
 }
+
+func (repo *UsersRepoPg) SetIsActiveByTeam(teamName string, isActive bool) ([]*User, error) <span class="cov8" title="1">{
+        repo.logger.Debugw("SetIsActiveByTeam()", "teamName", teamName)
+
+        var updatedUsers []*User
+        tx := repo.db.
+                Model(&amp;User{}).
+                Where("team_name = ?", teamName).
+                Clauses(clause.Returning{}).
+                Update("is_active", isActive).
+                Scan(&amp;updatedUsers)
+        if tx.Error != nil </span><span class="cov8" title="1">{
+                repo.logger.Errorw("failed to deactivate team members", "teamName", teamName, "err", tx.Error)
+                return nil, tx.Error
+        }</span>
+
+        <span class="cov8" title="1">if tx.RowsAffected == 0 </span><span class="cov8" title="1">{
+                repo.logger.Warnw("no active members found to deactivate", "teamName", teamName)
+                return nil, ErrUserNotFound
+        }</span>
+
+        <span class="cov8" title="1">repo.logger.Debugw("team members deactivated", "teamName", teamName, "affected", tx.RowsAffected)
+        return updatedUsers, nil</span>
+}
 </pre>
 		
 		</div>

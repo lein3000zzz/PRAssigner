@@ -20,6 +20,10 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	shutdownContextTimeout = 30 * time.Second
+)
+
 func RunPRAssigner() {
 	startGetEnv()
 
@@ -89,11 +93,12 @@ func RunPRAssigner() {
 
 	logger.Info("Shutting down the server")
 
+	numberOfServerGoroutines := 2
 	wg := &sync.WaitGroup{}
 
-	wg.Add(2)
+	wg.Add(numberOfServerGoroutines)
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), shutdownContextTimeout)
 		defer cancel()
 		if err := srv.Shutdown(ctx); err != nil {
 			logger.Fatal("the serrver was forced to shutdown:", err)
@@ -102,7 +107,7 @@ func RunPRAssigner() {
 	}()
 
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), shutdownContextTimeout)
 		defer cancel()
 		if err := srv.Shutdown(ctx); err != nil {
 			logger.Fatal("the serrver was forced to shutdown:", err)

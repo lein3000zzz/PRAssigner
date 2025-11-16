@@ -20,4 +20,5 @@ type User struct {
 
 type UsersRepo interface {
 	SetIsActive(userID string, isActive bool) (*User, error)
+	SetIsActiveByTeam(teamName string, isActive bool) ([]*User, error)
 }

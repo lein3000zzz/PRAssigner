@@ -18,7 +18,11 @@ type TeamHandler struct {
 	logger    *zap.SugaredLogger
 }
 
-func NewTeamHandler(logger *zap.SugaredLogger, teamsRepo team.TeamsRepo, prRepo pullrequest.PullRequestsRepo) *TeamHandler {
+func NewTeamHandler(
+	logger *zap.SugaredLogger,
+	teamsRepo team.TeamsRepo,
+	prRepo pullrequest.PullRequestsRepo,
+) *TeamHandler {
 	return &TeamHandler{
 		prRepo:    prRepo,
 		teamsRepo: teamsRepo,

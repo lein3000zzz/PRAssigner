@@ -20,7 +20,8 @@ type ErrResponse struct {
 	Error APIError `json:"error"`
 }
 
-// Map нужен, чтобы при изменении ошибок (для логов, например, то есть для повышения читаемости, либо чего-то еще) респонсы остались те же
+// Map нужен, чтобы при изменении ошибок (для логов, например, то есть для повышения читаемости,
+// либо чего-то еще) респонсы остались те же
 func Map(err error) (int, APIError, bool) {
 	switch {
 	case errors.Is(err, team.ErrTeamExists):
@@ -47,9 +48,9 @@ func Map(err error) (int, APIError, bool) {
 
 func Handle(c *gin.Context, err error) bool {
 	if status, apiErr, ok := Map(err); ok {
-		//c.JSON(status, ErrResponse{
-		//	Error: apiErr,
-		//})
+		// c.JSON(status, ErrResponse{
+		//	 Error: apiErr,
+		// })
 		WriteApiErrJSON(c, status, apiErr)
 		return true
 	}

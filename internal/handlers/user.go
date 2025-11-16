@@ -17,7 +17,11 @@ type UserHandler struct {
 	logger   *zap.SugaredLogger
 }
 
-func NewUserHandler(logger *zap.SugaredLogger, userRepo user.UsersRepo, prRepo pullrequest.PullRequestsRepo) *UserHandler {
+func NewUserHandler(
+	logger *zap.SugaredLogger,
+	userRepo user.UsersRepo,
+	prRepo pullrequest.PullRequestsRepo,
+) *UserHandler {
 	return &UserHandler{
 		prRepo:   prRepo,
 		userRepo: userRepo,
@@ -87,5 +91,39 @@ func (h *UserHandler) GetUserReviews(c *gin.Context) {
 	c.JSON(http.StatusOK, getPRResp{
 		UserID:       userID,
 		PullRequests: apidto.FromPRsToShort(prs),
+	})
+}
+
+type deactivateTeam struct {
+	TeamName string `json:"team_name"`
+}
+
+type deactivateTeamResp struct {
+	TeamName string        `json:"team_name"`
+	Members  []apidto.User `json:"members"`
+}
+
+func (h *UserHandler) DeactivateTeam(c *gin.Context) {
+	var req deactivateTeam
+	if err := c.ShouldBindJSON(&req); err != nil {
+		apierr.WriteApiErrJSON(c, http.StatusBadRequest, apierr.BadRequest)
+		h.logger.Warnw("error parsing request", "error", err)
+		return
+	}
+
+	deactivatedUsers, err := h.userRepo.SetIsActiveByTeam(req.TeamName, false)
+	if err != nil {
+		if apierr.Handle(c, err) {
+			h.logger.Warnw("error setting user", "error", err)
+			return
+		}
+		apierr.WriteApiErrJSON(c, http.StatusInternalServerError, apierr.InternalServerError)
+		h.logger.Errorw("error setting user", "error", err)
+		return
+	}
+
+	c.JSON(http.StatusOK, deactivateTeamResp{
+		TeamName: req.TeamName,
+		Members:  apidto.FromUsers(deactivatedUsers),
 	})
 }

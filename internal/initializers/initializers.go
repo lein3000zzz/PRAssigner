@@ -87,6 +87,7 @@ func initUserRoutes(router *gin.Engine, userHandler *handlers2.UserHandler) {
 
 	auth := initAdminAuthMdlwr()
 	usersGroup.POST("/setIsActive", auth.MiddlewareFunc(), userHandler.SetIsActive)
+	usersGroup.POST("/deactivateTeam", auth.MiddlewareFunc(), userHandler.DeactivateTeam)
 	usersGroup.GET("/getReview", userHandler.GetUserReviews)
 }
 

@@ -9,13 +9,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GetAdminAuthMiddleware - Легковеснее было бы написать свою реализацию, но я решил оставить распространенный пример - он позволяет
-// быстрее кастомизировать при изменениях каких-либо
+// GetAdminAuthMiddleware - Легковеснее было бы написать свою реализацию, но я решил оставить распространенный пример
+// - он позволяет быстрее кастомизировать при изменениях каких-либо
 func GetAdminAuthMiddleware(adminSecret string) (*jwt.GinJWTMiddleware, error) {
 	return jwt.New(&jwt.GinJWTMiddleware{
 		Realm:         "admin zone",
 		Key:           []byte(adminSecret),
-		Timeout:       time.Hour, // бесполезно, оставил так, как было в примерах с гитхаба
+		Timeout:       time.Hour, // бесполезно, оставил так, как было в примерах с гитхаба на офф репе gin-jwt
 		MaxRefresh:    time.Hour, // тоже не нужно
 		Unauthorized:  unauthorizedHandler,
 		TokenLookup:   "header: Authorization",

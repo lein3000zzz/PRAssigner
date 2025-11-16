@@ -2,7 +2,7 @@ package pullrequest
 
 import "assignerPR/pkg/user"
 
-// можно было бы для корректного логирования сделать это методами репозитория, но вообще эти функции могут быть использованы в разных репозиториях
+// можно было бы для корректного логирования сделать это методами репозитория, но я решил сделать их здесь
 
 func findReviewer(reviewers []*user.User, userID string) (*user.User, bool) {
 	for _, reviewer := range reviewers {

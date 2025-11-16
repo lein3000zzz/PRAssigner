@@ -5,3 +5,8 @@ assignerPR/pkg/user/user_pg_repo.go:36.21,39.3 2 1
 assignerPR/pkg/user/user_pg_repo.go:41.2,41.26 1 1
 assignerPR/pkg/user/user_pg_repo.go:41.26,44.3 2 1
 assignerPR/pkg/user/user_pg_repo.go:46.2,47.19 2 1
+assignerPR/pkg/user/user_pg_repo.go:50.93,60.21 4 1
+assignerPR/pkg/user/user_pg_repo.go:60.21,63.3 2 1
+assignerPR/pkg/user/user_pg_repo.go:65.2,65.26 1 1
+assignerPR/pkg/user/user_pg_repo.go:65.26,68.3 2 1
+assignerPR/pkg/user/user_pg_repo.go:70.2,71.26 2 1

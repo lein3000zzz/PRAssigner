@@ -1,0 +1,76 @@
+run:
+  timeout: 30m
+  tests: false
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - unused
+    - staticcheck
+
+    - wastedassign
+    - nilnil
+    - gocyclo
+    - goconst
+    - gocritic
+    - nakedret
+    - prealloc
+    - unconvert
+    - unparam
+    - lll
+    - mnd
+    - iface
+    - dupl
+
+  settings:
+    dupl:
+      threshold: 200
+    errcheck:
+      check-blank: true
+    govet:
+      enable:
+        - shadow
+    gocyclo:
+      min-complexity: 5
+    nakedret:
+      max-func-lines: 50
+    lll:
+      line-length: 120
+    mnd:
+      settings:
+        mnd:
+          checks:
+            - argument
+            - case
+            - condition
+            - operation
+            - return
+            - assign
+    goconst:
+      min-len: 2
+      min-occurrences: 3
+    prealloc:
+      simple: true
+      range-loops: true
+      for-loops: false
+
+exclusions:
+  generated: lax
+  presets:
+    - comments
+    - common-false-positives
+    - legacy
+    - std-error-handling
+  rules:
+    - path: (.+)\.go$
+      text: cyclomatic complexity
+  paths:
+    - "\\.git$"
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  exclusions:
+    generated: lax

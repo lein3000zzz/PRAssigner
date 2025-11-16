@@ -47,7 +47,8 @@ func (repo *PullRequestsRepoPg) CreatePR(prID, prName, authorID string) (*PullRe
 	dbTxErr = repo.db.Transaction(func(tx *gorm.DB) error {
 		var author user.User
 		if err := tx.First(&author, "user_id = ?", authorID).Error; err != nil {
-			// На сложных операциях, (как пример, транзакция), gorm не всегда отлавливает и оборачивает ошибки, возвращая просто ошибку бд
+			// На сложных операциях, (как пример, транзакция), gorm не всегда отлавливает и оборачивает ошибки,
+			// возвращая просто ошибку бд
 			if errors.Is(err, gorm.ErrRecordNotFound) || strings.Contains(err.Error(), "SQLSTATE 23505") {
 				repo.logger.Warnw("Author does not exist", "prID", prID, "authorID", authorID)
 				return ErrPRNotFound
@@ -64,7 +65,8 @@ func (repo *PullRequestsRepoPg) CreatePR(prID, prName, authorID string) (*PullRe
 		}
 
 		if err := tx.Create(pr).Error; err != nil {
-			// На сложных операциях, (как пример, транзакция), gorm не всегда отлавливает и оборачивает ошибки, возвращая просто ошибку бд
+			// На сложных операциях, (как пример, транзакция), gorm не всегда отлавливает и оборачивает ошибки,
+			// возвращая просто ошибку бд
 			if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "SQLSTATE 23505") {
 				repo.logger.Warnw("PR already exists", "prID", prID, "authorID", authorID)
 				return ErrPRExists
@@ -104,7 +106,8 @@ func (repo *PullRequestsRepoPg) pickInitialReviewersInTx(tx *gorm.DB, teamName, 
 	repo.logger.Debugw("pickInitialReviewersInTx()", "teamName", teamName, "authorID", authorID)
 
 	var reviewers []*user.User
-	// Maybe тут можно было как-то покрасивее написать запрос с использованием самих моделей, но я до красивого варианта не дошел.
+	// Maybe тут можно было как-то покрасивее написать запрос с использованием самих моделей,
+	// но я до красивого варианта не дошел.
 	err := tx.
 		Joins("LEFT JOIN pr_reviewers prr ON prr.user_id = users.user_id").
 		Joins("LEFT JOIN pull_requests pr ON pr.pull_request_id = prr.pull_request_id AND pr.status = ?", StatusOpen).
@@ -207,7 +210,10 @@ func (repo *PullRequestsRepoPg) Reassign(prID, oldUserID string) (*PullRequest, 
 			return ErrNotAssigned
 		}
 
-		excludeSet := make(map[string]struct{}, len(pr.AssignedReviewers)+2)
+		// для линтера, избегание magic numbers
+		authorExclusion := 1
+
+		excludeSet := make(map[string]struct{}, len(pr.AssignedReviewers)+authorExclusion)
 		excludeSet[oldUserID] = struct{}{}
 		if pr.AuthorID != "" {
 			excludeSet[pr.AuthorID] = struct{}{}
@@ -236,7 +242,8 @@ func (repo *PullRequestsRepoPg) Reassign(prID, oldUserID string) (*PullRequest, 
 			Order("RANDOM()").
 			Limit(1).
 			First(&candidate).Error; err != nil {
-			// На сложных операциях, (как пример, транзакция), gorm не всегда отлавливает и оборачивает ошибки, возвращая просто ошибку бд
+			// На сложных операциях, (как пример, транзакция), gorm не всегда отлавливает и оборачивает ошибки,
+			// возвращая просто ошибку бд
 			if errors.Is(err, gorm.ErrRecordNotFound) || strings.Contains(err.Error(), "SQLSTATE 23505") {
 				repo.logger.Errorw("no candidates for reassign", "prID", prID, "oldUserID", oldUserID)
 				return ErrNoCandidate
@@ -388,7 +395,8 @@ func (repo *PullRequestsRepoPg) GetTeamPRStats(teamName string) ([]*UserStats, e
 	var results []*UserStats
 
 	err = repo.db.Table("users").
-		Select("users.user_id, COALESCE(COUNT(CASE WHEN pull_requests.status = ? THEN 1 END), 0) as open_count, COALESCE(COUNT(CASE WHEN pull_requests.status = ? THEN 1 END), 0) as merged_count", StatusOpen, StatusMerged).
+		Select("users.user_id, COALESCE(COUNT(CASE WHEN pull_requests.status = ? THEN 1 END), 0) as open_count, "+
+			"COALESCE(COUNT(CASE WHEN pull_requests.status = ? THEN 1 END), 0) as merged_count", StatusOpen, StatusMerged).
 		Joins("LEFT JOIN pr_reviewers ON pr_reviewers.user_id = users.user_id").
 		Joins("LEFT JOIN pull_requests ON pr_reviewers.pull_request_id = pull_requests.pull_request_id").
 		Where("users.team_name = ?", teamName).
@@ -400,14 +408,14 @@ func (repo *PullRequestsRepoPg) GetTeamPRStats(teamName string) ([]*UserStats, e
 		return nil, err
 	}
 
-	//stats := make(map[string]*MemberStats)
-	//for _, stat := range results {
+	// stats := make(map[string]*MemberStats)
+	// for _, stat := range results {
 	//	stats[stat.UserID] = &stat
 	//	//stats[stat.userID] = &MemberStats{
 	//	//	OpenCount:   stat.OpenCount,
 	//	//	MergedCount: stat.MergedCount,
 	//	//}
-	//}
+	// }
 
 	repo.logger.Debugw("Got team PR stats", "teamName", teamName, "userCount", len(results))
 	return results, nil

@@ -46,3 +46,27 @@ func (repo *UsersRepoPg) SetIsActive(userID string, isActive bool) (*User, error
 	repo.logger.Debugw("got user by id", "userID", userID)
 	return &user, nil
 }
+
+func (repo *UsersRepoPg) SetIsActiveByTeam(teamName string, isActive bool) ([]*User, error) {
+	repo.logger.Debugw("SetIsActiveByTeam()", "teamName", teamName)
+
+	var updatedUsers []*User
+	tx := repo.db.
+		Model(&User{}).
+		Where("team_name = ?", teamName).
+		Clauses(clause.Returning{}).
+		Update("is_active", isActive).
+		Scan(&updatedUsers)
+	if tx.Error != nil {
+		repo.logger.Errorw("failed to deactivate team members", "teamName", teamName, "err", tx.Error)
+		return nil, tx.Error
+	}
+
+	if tx.RowsAffected == 0 {
+		repo.logger.Warnw("no active members found to deactivate", "teamName", teamName)
+		return nil, ErrUserNotFound
+	}
+
+	repo.logger.Debugw("team members deactivated", "teamName", teamName, "affected", tx.RowsAffected)
+	return updatedUsers, nil
+}
