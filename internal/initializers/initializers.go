@@ -1,13 +1,15 @@
 package initializers
 
 import (
+	handlers2 "assignerPR/internal/handlers"
+	"assignerPR/internal/handlers/mdlwr"
 	"assignerPR/internal/metrics"
-	"assignerPR/pkg/handlers"
-	"assignerPR/pkg/pullrequest"
+	"assignerPR/internal/pullrequest"
 	"assignerPR/pkg/team"
 	"assignerPR/pkg/user"
 	"net/http"
 
+	jwt "github.com/appleboy/gin-jwt/v2"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -80,14 +82,15 @@ func gormAutoMigrate(db *gorm.DB) {
 	}
 }
 
-func initUserRoutes(router *gin.Engine, userHandler *handlers.UserHandler) {
+func initUserRoutes(router *gin.Engine, userHandler *handlers2.UserHandler) {
 	usersGroup := router.Group("/users")
 
-	usersGroup.POST("/setIsActive", userHandler.SetIsActive)
+	auth := initAdminAuthMdlwr()
+	usersGroup.POST("/setIsActive", auth.MiddlewareFunc(), userHandler.SetIsActive)
 	usersGroup.GET("/getReview", userHandler.GetUserReviews)
 }
 
-func initPullRequestRoutes(router *gin.Engine, pullRequestHandler *handlers.PullRequestHandler) {
+func initPullRequestRoutes(router *gin.Engine, pullRequestHandler *handlers2.PullRequestHandler) {
 	prsGroup := router.Group("/pullRequest")
 
 	prsGroup.POST("/create", pullRequestHandler.CreatePR)
@@ -95,7 +98,7 @@ func initPullRequestRoutes(router *gin.Engine, pullRequestHandler *handlers.Pull
 	prsGroup.POST("/reassign", pullRequestHandler.ReassignPR)
 }
 
-func initTeamRoutes(router *gin.Engine, teamHandler *handlers.TeamHandler) {
+func initTeamRoutes(router *gin.Engine, teamHandler *handlers2.TeamHandler) {
 	teamsGroup := router.Group("/team")
 
 	teamsGroup.POST("/add", teamHandler.AddTeam)
@@ -125,4 +128,20 @@ func initMetricsServer() *http.Server {
 	}
 
 	return srv
+}
+
+// В соответствии со спецификацией openapi.yml
+func initAdminAuthMdlwr() *jwt.GinJWTMiddleware {
+	adminSecret := os.Getenv("ADMIN_JWT_SECRET")
+
+	if adminSecret == "" {
+		log.Fatalf("ADMIN_JWT_SECRET environment variable not set")
+	}
+
+	auth, err := mdlwr.GetAdminAuthMiddleware(adminSecret)
+	if err != nil {
+		log.Fatal("JWT Error: " + err.Error())
+	}
+
+	return auth
 }

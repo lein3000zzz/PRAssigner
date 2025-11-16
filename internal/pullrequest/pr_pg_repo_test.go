@@ -1,7 +1,7 @@
 package pullrequest_test
 
 import (
-	"assignerPR/pkg/pullrequest"
+	pullrequest2 "assignerPR/internal/pullrequest"
 	"assignerPR/pkg/user"
 	"errors"
 	"log"
@@ -56,7 +56,7 @@ func TestPullRequestsRepoPg_CreatePR(t *testing.T) {
 		args     createPRArgs
 		mockFunc func(sqlmock.Sqlmock)
 		wantErr  error
-		wantPR   *pullrequest.PullRequest
+		wantPR   *pullrequest2.PullRequest
 	}{
 		{
 			name: "success",
@@ -69,7 +69,7 @@ func TestPullRequestsRepoPg_CreatePR(t *testing.T) {
 				m.ExpectQuery(`SELECT * FROM "users"`).WillReturnRows(authorRows)
 
 				m.ExpectExec(`INSERT INTO "pull_requests"`).
-					WithArgs("pr-123", "Fix bug", "user-123", pullrequest.StatusOpen, sqlmock.AnyArg(), sqlmock.AnyArg(), nil).
+					WithArgs("pr-123", "Fix bug", "user-123", pullrequest2.StatusOpen, sqlmock.AnyArg(), sqlmock.AnyArg(), nil).
 					WillReturnResult(sqlmock.NewResult(1, 1))
 
 				candidateRows := sqlmock.NewRows([]string{"user_id", "username", "team_name", "is_active", "created_at", "updated_at"}).
@@ -92,7 +92,7 @@ func TestPullRequestsRepoPg_CreatePR(t *testing.T) {
 					WillReturnResult(sqlmock.NewResult(2, 2))
 
 				prRows := sqlmock.NewRows([]string{"pull_request_id", "pull_request_name", "author_id", "status", "created_at", "updated_at", "merged_at"}).
-					AddRow("pr-123", "Fix bug", "user-123", pullrequest.StatusOpen, fixedTime, fixedTime, nil)
+					AddRow("pr-123", "Fix bug", "user-123", pullrequest2.StatusOpen, fixedTime, fixedTime, nil)
 				m.ExpectQuery(`SELECT * FROM "pull_requests"`).WillReturnRows(prRows)
 
 				linkRows := sqlmock.NewRows([]string{"pull_request_id", "user_id"}).
@@ -107,11 +107,11 @@ func TestPullRequestsRepoPg_CreatePR(t *testing.T) {
 
 				m.ExpectCommit()
 			},
-			wantPR: &pullrequest.PullRequest{
+			wantPR: &pullrequest2.PullRequest{
 				PullRequestID:   "pr-123",
 				PullRequestName: "Fix bug",
 				AuthorID:        "user-123",
-				Status:          pullrequest.StatusOpen,
+				Status:          pullrequest2.StatusOpen,
 				AssignedReviewers: []*user.User{
 					{UserID: "user-456", Username: "reviewer1", TeamName: "backend", IsActive: true},
 					{UserID: "user-789", Username: "reviewer2", TeamName: "backend", IsActive: true},
@@ -126,7 +126,7 @@ func TestPullRequestsRepoPg_CreatePR(t *testing.T) {
 				m.ExpectQuery(`SELECT * FROM "users"`).WillReturnError(gorm.ErrRecordNotFound)
 				m.ExpectRollback()
 			},
-			wantErr: pullrequest.ErrPRNotFound,
+			wantErr: pullrequest2.ErrPRNotFound,
 		},
 		{
 			name: "pr already exists",
@@ -139,12 +139,12 @@ func TestPullRequestsRepoPg_CreatePR(t *testing.T) {
 				m.ExpectQuery(`SELECT * FROM "users"`).WillReturnRows(authorRows)
 
 				m.ExpectExec(`INSERT INTO "pull_requests"`).
-					WithArgs("pr-123", "Fix bug", "user-123", pullrequest.StatusOpen, sqlmock.AnyArg(), sqlmock.AnyArg(), nil).
+					WithArgs("pr-123", "Fix bug", "user-123", pullrequest2.StatusOpen, sqlmock.AnyArg(), sqlmock.AnyArg(), nil).
 					WillReturnError(errors.New("SQLSTATE 23505"))
 
 				m.ExpectRollback()
 			},
-			wantErr: pullrequest.ErrPRExists,
+			wantErr: pullrequest2.ErrPRExists,
 		},
 	}
 
@@ -153,7 +153,7 @@ func TestPullRequestsRepoPg_CreatePR(t *testing.T) {
 			db, mock, cleanup := newMockDB(t)
 			defer cleanup()
 
-			repo := pullrequest.NewPullRequestsRepoPg(zap.NewNop().Sugar(), db)
+			repo := pullrequest2.NewPullRequestsRepoPg(zap.NewNop().Sugar(), db)
 			if tt.mockFunc != nil {
 				tt.mockFunc(mock)
 			}
@@ -182,7 +182,7 @@ func TestPullRequestsRepoPg_Merge(t *testing.T) {
 		prID     string
 		mockFunc func(sqlmock.Sqlmock)
 		wantErr  error
-		wantPR   *pullrequest.PullRequest
+		wantPR   *pullrequest2.PullRequest
 	}{
 		{
 			name: "success",
@@ -191,7 +191,7 @@ func TestPullRequestsRepoPg_Merge(t *testing.T) {
 				m.ExpectBegin()
 
 				prRows := sqlmock.NewRows([]string{"pull_request_id", "pull_request_name", "author_id", "status", "created_at", "updated_at", "merged_at"}).
-					AddRow("pr-123", "Fix bug", "user-123", pullrequest.StatusOpen, fixedTime, fixedTime, nil)
+					AddRow("pr-123", "Fix bug", "user-123", pullrequest2.StatusOpen, fixedTime, fixedTime, nil)
 				m.ExpectQuery(`SELECT * FROM "pull_requests"`).WillReturnRows(prRows)
 
 				linkRows := sqlmock.NewRows([]string{"pull_request_id", "user_id"}).
@@ -205,14 +205,14 @@ func TestPullRequestsRepoPg_Merge(t *testing.T) {
 				m.ExpectQuery(`SELECT * FROM "users"`).WillReturnRows(assignedRows)
 
 				m.ExpectExec(`UPDATE "pull_requests"`).
-					WithArgs(pullrequest.StatusMerged, sqlmock.AnyArg(), sqlmock.AnyArg(), "pr-123").
+					WithArgs(pullrequest2.StatusMerged, sqlmock.AnyArg(), sqlmock.AnyArg(), "pr-123").
 					WillReturnResult(sqlmock.NewResult(1, 1))
 
 				m.ExpectCommit()
 			},
-			wantPR: &pullrequest.PullRequest{
+			wantPR: &pullrequest2.PullRequest{
 				PullRequestID: "pr-123",
-				Status:        pullrequest.StatusMerged,
+				Status:        pullrequest2.StatusMerged,
 			},
 		},
 		{
@@ -223,7 +223,7 @@ func TestPullRequestsRepoPg_Merge(t *testing.T) {
 				m.ExpectQuery(`SELECT * FROM "pull_requests"`).WillReturnError(gorm.ErrRecordNotFound)
 				m.ExpectRollback()
 			},
-			wantErr: pullrequest.ErrPRNotFound,
+			wantErr: pullrequest2.ErrPRNotFound,
 		},
 		{
 			name: "already merged",
@@ -232,7 +232,7 @@ func TestPullRequestsRepoPg_Merge(t *testing.T) {
 				m.ExpectBegin()
 
 				prRows := sqlmock.NewRows([]string{"pull_request_id", "pull_request_name", "author_id", "status", "created_at", "updated_at", "merged_at"}).
-					AddRow("pr-123", "Fix bug", "user-123", pullrequest.StatusMerged, fixedTime, fixedTime, fixedTime)
+					AddRow("pr-123", "Fix bug", "user-123", pullrequest2.StatusMerged, fixedTime, fixedTime, fixedTime)
 				m.ExpectQuery(`SELECT * FROM "pull_requests"`).WillReturnRows(prRows)
 
 				linkRows := sqlmock.NewRows([]string{"pull_request_id", "user_id"}).
@@ -245,9 +245,9 @@ func TestPullRequestsRepoPg_Merge(t *testing.T) {
 
 				m.ExpectCommit()
 			},
-			wantPR: &pullrequest.PullRequest{
+			wantPR: &pullrequest2.PullRequest{
 				PullRequestID: "pr-123",
-				Status:        pullrequest.StatusMerged,
+				Status:        pullrequest2.StatusMerged,
 			},
 		},
 	}
@@ -257,7 +257,7 @@ func TestPullRequestsRepoPg_Merge(t *testing.T) {
 			db, mock, cleanup := newMockDB(t)
 			defer cleanup()
 
-			repo := pullrequest.NewPullRequestsRepoPg(zap.NewNop().Sugar(), db)
+			repo := pullrequest2.NewPullRequestsRepoPg(zap.NewNop().Sugar(), db)
 			if tt.mockFunc != nil {
 				tt.mockFunc(mock)
 			}
@@ -294,7 +294,7 @@ func TestPullRequestsRepoPg_Reassign(t *testing.T) {
 		args         reassignArgs
 		mockFunc     func(sqlmock.Sqlmock)
 		wantErr      error
-		wantPR       *pullrequest.PullRequest
+		wantPR       *pullrequest2.PullRequest
 		wantReplaced string
 	}{
 		{
@@ -304,7 +304,7 @@ func TestPullRequestsRepoPg_Reassign(t *testing.T) {
 				m.ExpectBegin()
 
 				prRows := sqlmock.NewRows([]string{"pull_request_id", "pull_request_name", "author_id", "status", "created_at", "updated_at", "merged_at"}).
-					AddRow("pr-123", "Fix bug", "user-123", pullrequest.StatusOpen, fixedTime, fixedTime, nil)
+					AddRow("pr-123", "Fix bug", "user-123", pullrequest2.StatusOpen, fixedTime, fixedTime, nil)
 				m.ExpectQuery(`SELECT * FROM "pull_requests"`).WillReturnRows(prRows)
 
 				linkRows := sqlmock.NewRows([]string{"pull_request_id", "user_id"}).
@@ -339,7 +339,7 @@ func TestPullRequestsRepoPg_Reassign(t *testing.T) {
 				m.ExpectExec(`DELETE FROM "pr_reviewers"`).WillReturnResult(sqlmock.NewResult(2, 2))
 
 				reloadPRRows := sqlmock.NewRows([]string{"pull_request_id", "pull_request_name", "author_id", "status", "created_at", "updated_at", "merged_at"}).
-					AddRow("pr-123", "Fix bug", "user-123", pullrequest.StatusOpen, fixedTime, fixedTime, nil)
+					AddRow("pr-123", "Fix bug", "user-123", pullrequest2.StatusOpen, fixedTime, fixedTime, nil)
 				m.ExpectQuery(`SELECT * FROM "pull_requests"`).WillReturnRows(reloadPRRows)
 
 				reloadLinks := sqlmock.NewRows([]string{"pull_request_id", "user_id"}).
@@ -354,11 +354,11 @@ func TestPullRequestsRepoPg_Reassign(t *testing.T) {
 
 				m.ExpectCommit()
 			},
-			wantPR: &pullrequest.PullRequest{
+			wantPR: &pullrequest2.PullRequest{
 				PullRequestID:   "pr-123",
 				PullRequestName: "Fix bug",
 				AuthorID:        "user-123",
-				Status:          pullrequest.StatusOpen,
+				Status:          pullrequest2.StatusOpen,
 				AssignedReviewers: []*user.User{
 					{UserID: "user-111", Username: "reviewerA", TeamName: "backend", IsActive: true},
 					{UserID: "user-222", Username: "reviewerC", TeamName: "backend", IsActive: true},
@@ -374,7 +374,7 @@ func TestPullRequestsRepoPg_Reassign(t *testing.T) {
 				m.ExpectQuery(`SELECT * FROM "pull_requests"`).WillReturnError(gorm.ErrRecordNotFound)
 				m.ExpectRollback()
 			},
-			wantErr: pullrequest.ErrPRNotFound,
+			wantErr: pullrequest2.ErrPRNotFound,
 		},
 		{
 			name: "no candidate",
@@ -383,7 +383,7 @@ func TestPullRequestsRepoPg_Reassign(t *testing.T) {
 				m.ExpectBegin()
 
 				prRows := sqlmock.NewRows([]string{"pull_request_id", "pull_request_name", "author_id", "status", "created_at", "updated_at", "merged_at"}).
-					AddRow("pr-123", "Fix bug", "user-123", pullrequest.StatusOpen, fixedTime, fixedTime, nil)
+					AddRow("pr-123", "Fix bug", "user-123", pullrequest2.StatusOpen, fixedTime, fixedTime, nil)
 				m.ExpectQuery(`SELECT * FROM "pull_requests"`).WillReturnRows(prRows)
 
 				linkRows := sqlmock.NewRows([]string{"pull_request_id", "user_id"}).
@@ -398,7 +398,7 @@ func TestPullRequestsRepoPg_Reassign(t *testing.T) {
 
 				m.ExpectRollback()
 			},
-			wantErr: pullrequest.ErrNoCandidate,
+			wantErr: pullrequest2.ErrNoCandidate,
 		},
 	}
 
@@ -407,7 +407,7 @@ func TestPullRequestsRepoPg_Reassign(t *testing.T) {
 			db, mock, cleanup := newMockDB(t)
 			defer cleanup()
 
-			repo := pullrequest.NewPullRequestsRepoPg(zap.NewNop().Sugar(), db)
+			repo := pullrequest2.NewPullRequestsRepoPg(zap.NewNop().Sugar(), db)
 			if tt.mockFunc != nil {
 				tt.mockFunc(mock)
 			}
@@ -436,7 +436,7 @@ func TestPullRequestsRepoPg_ListPRsByReviewer(t *testing.T) {
 		userID   string
 		mockFunc func(sqlmock.Sqlmock)
 		wantErr  error
-		wantPRs  []*pullrequest.PullRequest
+		wantPRs  []*pullrequest2.PullRequest
 	}{
 		{
 			name:   "success",
@@ -450,13 +450,13 @@ func TestPullRequestsRepoPg_ListPRsByReviewer(t *testing.T) {
 				m.ExpectQuery(`SELECT "pull_request_id" FROM "pr_reviewers"`).WillReturnRows(pluckRows)
 
 				prRows := sqlmock.NewRows([]string{"pull_request_id", "pull_request_name", "author_id", "status", "created_at", "updated_at", "merged_at"}).
-					AddRow("pr-1", "Fix bug", "user-111", pullrequest.StatusOpen, fixedTime, fixedTime, nil).
-					AddRow("pr-2", "Add feature", "user-222", pullrequest.StatusMerged, fixedTime, fixedTime, fixedTime)
+					AddRow("pr-1", "Fix bug", "user-111", pullrequest2.StatusOpen, fixedTime, fixedTime, nil).
+					AddRow("pr-2", "Add feature", "user-222", pullrequest2.StatusMerged, fixedTime, fixedTime, fixedTime)
 				m.ExpectQuery(`SELECT * FROM "pull_requests"`).WillReturnRows(prRows)
 
 				m.ExpectCommit()
 			},
-			wantPRs: []*pullrequest.PullRequest{
+			wantPRs: []*pullrequest2.PullRequest{
 				{PullRequestID: "pr-1", PullRequestName: "Fix bug"},
 				{PullRequestID: "pr-2", PullRequestName: "Add feature"},
 			},
@@ -470,7 +470,7 @@ func TestPullRequestsRepoPg_ListPRsByReviewer(t *testing.T) {
 				m.ExpectQuery(`SELECT "pull_request_id" FROM "pr_reviewers" WHERE user_id`).WillReturnRows(pluckRows)
 				m.ExpectCommit()
 			},
-			wantPRs: []*pullrequest.PullRequest{},
+			wantPRs: []*pullrequest2.PullRequest{},
 		},
 	}
 
@@ -479,7 +479,7 @@ func TestPullRequestsRepoPg_ListPRsByReviewer(t *testing.T) {
 			db, mock, cleanup := newMockDB(t)
 			defer cleanup()
 
-			repo := pullrequest.NewPullRequestsRepoPg(zap.NewNop().Sugar(), db)
+			repo := pullrequest2.NewPullRequestsRepoPg(zap.NewNop().Sugar(), db)
 			if tt.mockFunc != nil {
 				tt.mockFunc(mock)
 			}
@@ -508,7 +508,7 @@ func TestPullRequestsRepoPg_GetTeamPRStats(t *testing.T) {
 		teamName  string
 		mockFunc  func(sqlmock.Sqlmock)
 		wantErr   error
-		wantStats []*pullrequest.UserStats
+		wantStats []*pullrequest2.UserStats
 	}{
 		{
 			name:     "success",
@@ -519,7 +519,7 @@ func TestPullRequestsRepoPg_GetTeamPRStats(t *testing.T) {
 					AddRow("user-789", int64(1), int64(3))
 				m.ExpectQuery(`SELECT users.user_id`).WillReturnRows(rows)
 			},
-			wantStats: []*pullrequest.UserStats{
+			wantStats: []*pullrequest2.UserStats{
 				{UserID: "user-456", OpenCount: 2, MergedCount: 1},
 				{UserID: "user-789", OpenCount: 1, MergedCount: 3},
 			},
@@ -539,7 +539,7 @@ func TestPullRequestsRepoPg_GetTeamPRStats(t *testing.T) {
 			db, mock, cleanup := newMockDB(t)
 			defer cleanup()
 
-			repo := pullrequest.NewPullRequestsRepoPg(zap.NewNop().Sugar(), db)
+			repo := pullrequest2.NewPullRequestsRepoPg(zap.NewNop().Sugar(), db)
 			if tt.mockFunc != nil {
 				tt.mockFunc(mock)
 			}
@@ -563,7 +563,7 @@ func TestPullRequestsRepoPg_GetTeamPRStats(t *testing.T) {
 	}
 }
 
-func assertPR(t *testing.T, got, want *pullrequest.PullRequest) {
+func assertPR(t *testing.T, got, want *pullrequest2.PullRequest) {
 	require.NotNil(t, got)
 	require.NotNil(t, want)
 	require.Equal(t, want.PullRequestID, got.PullRequestID)

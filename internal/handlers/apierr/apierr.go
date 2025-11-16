@@ -1,7 +1,7 @@
 package apierr
 
 import (
-	"assignerPR/pkg/pullrequest"
+	"assignerPR/internal/pullrequest"
 	"assignerPR/pkg/team"
 	"assignerPR/pkg/user"
 	"errors"

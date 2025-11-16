@@ -1,7 +1,7 @@
 package apidto
 
 import (
-	"assignerPR/pkg/pullrequest"
+	"assignerPR/internal/pullrequest"
 	"time"
 )
 

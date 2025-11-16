@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	"assignerPR/pkg/handlers/apidto"
-	"assignerPR/pkg/handlers/apierr"
-	"assignerPR/pkg/pullrequest"
+	"assignerPR/internal/handlers/apidto"
+	"assignerPR/internal/handlers/apierr"
+	"assignerPR/internal/pullrequest"
 	"assignerPR/pkg/team"
 	"assignerPR/pkg/user"
 	"net/http"

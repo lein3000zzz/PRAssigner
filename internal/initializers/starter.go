@@ -1,8 +1,8 @@
 package initializers
 
 import (
-	"assignerPR/pkg/handlers"
-	"assignerPR/pkg/pullrequest"
+	handlers2 "assignerPR/internal/handlers"
+	"assignerPR/internal/pullrequest"
 	"assignerPR/pkg/team"
 	"assignerPR/pkg/user"
 	"context"
@@ -41,9 +41,9 @@ func RunPRAssigner() {
 	teamRepo := team.NewTeamsRepoPg(logger, db)
 	prRepo := pullrequest.NewPullRequestsRepoPg(logger, db)
 
-	userHandler := handlers.NewUserHandler(logger, userRepo, prRepo)
-	teamHandler := handlers.NewTeamHandler(logger, teamRepo, prRepo)
-	prHandler := handlers.NewPullRequestHandler(logger, prRepo)
+	userHandler := handlers2.NewUserHandler(logger, userRepo, prRepo)
+	teamHandler := handlers2.NewTeamHandler(logger, teamRepo, prRepo)
+	prHandler := handlers2.NewPullRequestHandler(logger, prRepo)
 
 	router := gin.New()
 	initMetricsMdlwr(router)
