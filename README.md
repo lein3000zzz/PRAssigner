@@ -40,7 +40,7 @@ Docker
     
      var AdminSecret = []byte("Abobus")
     
-	    func main() {
+	 func main() {
      token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
         "role": "admin",
          "exp":  time.Now().Add(365 * 24 * time.Hour).Unix(),
