@@ -41,13 +41,13 @@ Docker
      var AdminSecret = []byte("Abobus")
     
 	 func main() {
-     token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-        "role": "admin",
-         "exp":  time.Now().Add(365 * 24 * time.Hour).Unix(),
-     })
+	 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+	        "role": "admin",
+	    	"exp":  time.Now().Add(365 * 24 * time.Hour).Unix(),
+		})
     
-	    s, _ := token.SignedString(AdminSecret)
-	    fmt.Println(s)
+		s, _ := token.SignedString(AdminSecret)
+		fmt.Println(s)
      }
      ```
      - Логика jwt в сервисе основана на [gin-jwt](https://github.com/appleboy/gin-jwt), что в текущей ситуации является оверкиллом (легковеснее было бы написать свое решение (свою милдварь)), но хорошо подходит для расширения логики (потому что её описания вообще не было)
