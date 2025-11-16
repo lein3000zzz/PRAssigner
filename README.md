@@ -151,6 +151,7 @@ Docker
 <p align="center">
   <img height="300" src="https://github.com/lein3000zzz/PRAssigner/blob/main/assets/images/readme/loadTestGrafana.png?raw=true" alt="🦍"/>
 </p>
+
 9. Описал конфигурацию линтера в .golangci.yml
    - Выполняется командой: 
    ```console
