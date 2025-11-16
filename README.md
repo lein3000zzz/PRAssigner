@@ -141,8 +141,9 @@ Docker
     ```
    - Метрики во время нагрузочного тестирования:
 
-<img align="center" height="300" src="https://github.com/lein3000zzz/PRAssigner/blob/main/assets/images/readme/loadTestGrafana.png?raw=true" alt="🦍"/>
-
+<p align="center">
+  <img height="300" src="https://github.com/lein3000zzz/PRAssigner/blob/main/assets/images/readme/loadTestGrafana.png?raw=true" alt="🦍"/>
+</p>
 9. Описал конфигурацию линтера в .golangci.yml
    - Выполняется командой: 
    ```shell
@@ -152,5 +153,7 @@ Docker
 
 <details>
     <summary>Cat picture</summary>
-    <img align="center" height="300" src="https://github.com/lein3000zzz/PRAssigner/blob/main/assets/images/readme/me_irl.png?raw=true" alt="🦍"/>
+    <p align="center">
+        <img align="center" height="300" src="https://github.com/lein3000zzz/PRAssigner/blob/main/assets/images/readme/me_irl.png?raw=true" alt="🦍"/>
+    </p>
 </details>
