@@ -132,6 +132,13 @@ Docker
    - В приложении метрики скрыты, работают на отдельном порту из конфига по эндпоинту `/metrics`
 8. Провел нагрузочное тестирование приложения с помощью [vegeta](https://github.com/tsenart/vegeta)
    - Версия использования vegeta: [библиотечная](https://github.com/tsenart/vegeta?tab=readme-ov-file#usage-library).
+   - Параметры vegeta:
+    ```go
+    rate := vegeta.Rate{
+        Freq: 100, Per: time.Second,
+    }
+    duration := 100 * time.Second
+    ```
    - Вывод моей программы по результатам нагрузочного тестирования:
     ```markdown
     Requests: 10000
