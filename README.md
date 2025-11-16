@@ -153,7 +153,7 @@ Docker
 </p>
 9. Описал конфигурацию линтера в .golangci.yml
    - Выполняется командой: 
-   ```shell
+   ```console
    golangci-lint run ./...  
    ```
 10. (Не реализовано) При E2E / интеграционном тестировании использовал бы [testcontainers](https://golang.testcontainers.org/)
