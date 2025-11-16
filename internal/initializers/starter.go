@@ -25,7 +25,7 @@ const (
 )
 
 func RunPRAssigner() {
-	startGetEnv()
+	// startGetEnv() // при запуске без докера
 
 	zapLogger := startLogger()
 

@@ -12,7 +12,6 @@ import (
 	jwt "github.com/appleboy/gin-jwt/v2"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gorm.io/driver/postgres"
@@ -22,17 +21,18 @@ import (
 	"os"
 )
 
-func startGetEnv() {
-	if os.Getenv("ENVIRONMENT") == "PROD" {
-		return
-	}
-
-	err := godotenv.Load("local.env")
-
-	if err != nil {
-		log.Fatalf("Error loading .env file")
-	}
-}
+// При запуске без докера. Комментить код и не удалять - плохо, но тут есть причины
+// func startGetEnv() {
+//	if os.Getenv("ENVIRONMENT") == "PROD" {
+//		return
+//	}
+//
+//	err := godotenv.Load("local.env")
+//
+//	if err != nil {
+//		log.Fatalf("Error loading .env file")
+//	}
+// }
 
 func startLogger() *zap.Logger {
 	levelStr := os.Getenv("LOG_LEVEL")

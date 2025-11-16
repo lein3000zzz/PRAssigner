@@ -10,4 +10,5 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 COPY --from=builder /app/assigner .
 COPY --from=builder /app/prod.env ./prod.env
+COPY --from=builder /app/local.env ./local.env
 CMD ["./assigner"]

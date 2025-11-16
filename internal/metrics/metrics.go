@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -65,7 +66,7 @@ func GinMiddleware(c *gin.Context) {
 		path = c.Request.URL.Path
 	}
 
-	if path == "/metrics" {
+	if path == "/metrics" || strings.HasPrefix(path, "/debug/pprof/") {
 		return
 	}
 
